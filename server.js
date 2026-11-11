@@ -1,8 +1,9 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import ideaRoutes from './routes/ideaRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 // Carga .env local si existe, sin sobreescribir variables del entorno de producción
 dotenv.config();
@@ -21,6 +22,7 @@ console.log('---------------------------');
 // Endpoints de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/ideas', ideaRoutes);
+app.use('/api/admin', adminRoutes); // <- Nuevas rutas para el panel de admin y chat
 
 app.get('/', (req, res) => {
   res.send('API de NovaCreativa con PostgreSQL y Prisma lista');

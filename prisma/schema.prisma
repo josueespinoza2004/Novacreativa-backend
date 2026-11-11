@@ -14,19 +14,30 @@ model User {
   empresa   String
   email     String   @unique
   password  String
+  isAdmin   Boolean  @default(false) // Nuevo: Permite diferenciar si el usuario es administrador
   createdAt DateTime @default(now())
   ideas     Idea[]
 }
 
 model Idea {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   titulo      String
   servicio    String
   presupuesto String
   tiempo      String
-  detalles    String?  @default("")
-  estado      String   @default("Enviado a BD")
-  createdAt   DateTime @default(now())
+  detalles    String?   @default("")
+  estado      String    @default("en_revision") // Cambiado para soportar: "en_revision", "aceptada", "rechazada"
+  createdAt   DateTime  @default(now())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[] // Nuevo: Relación para los mensajes del chat de cada idea
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String   // Contenido del mensaje de chat
+  senderId  String   // ID de quién envía el mensaje (puede ser el usuario o el admin)
+  ideaId    String
+  idea      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
