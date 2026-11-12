@@ -1,6 +1,6 @@
 import express from 'express';
-import { createIdea, getMyIdeas, deleteIdea } from '../controllers/ideaController.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
+import { createIdea, getMyIdeas, deleteIdea, sendUserMessage } from '../controllers/ideaController.js';
 
 const router = express.Router();
 
@@ -8,5 +8,6 @@ const router = express.Router();
 router.post('/', verifyToken, createIdea);
 router.get('/', verifyToken, getMyIdeas);
 router.delete('/:id', verifyToken, deleteIdea);
+router.post('/:ideaId/messages', verifyToken, sendUserMessage);
 
 export default router;

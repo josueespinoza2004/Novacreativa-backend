@@ -28,19 +28,55 @@ export const createIdea = async (req, res) => {
   }
 };
 
-// Obtener todas las ideas de la empresa autenticada
+// Obtener todas las ideas de la empresa autenticada (incluyendo historial de chat)
 export const getMyIdeas = async (req, res) => {
   try {
     const userId = req.user.id;
 
     const ideas = await prisma.idea.findMany({
       where: { userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     });
 
     res.json(ideas);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener las ideas.', error: error.message });
+  }
+};
+
+// Enviar mensaje en el chat de una idea propia (Usuario -> Admin)
+export const sendUserMessage = async (req, res) => {
+  try {
+    const { ideaId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'El contenido del mensaje no puede estar vacío.' });
+    }
+
+    // Verificar que la idea pertenezca a la empresa autenticada
+    const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
+    if (!idea || idea.userId !== userId) {
+      return res.status(403).json({ message: 'Idea no encontrada o sin permisos para comentar.' });
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        content: content.trim(),
+        senderId: String(userId),
+        ideaId
+      }
+    });
+
+    res.status(201).json(message);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al enviar el mensaje.', error: error.message });
   }
 };
 

@@ -37,18 +37,24 @@ export const updateIdeaStatus = async (req, res) => {
 export const sendMessage = async (req, res) => {
     const { ideaId } = req.params;
     const { content } = req.body;
-    const senderId = req.user.userId;
+
+    // Detecta el ID sin importar cómo lo firme el token JWT, o usa 'admin' como respaldo
+    const senderId = req.user?.userId || req.user?.id || req.user?.email || 'admin-novacreativa';
+
+    if (!content || !content.trim()) {
+        return res.status(400).json({ message: 'El contenido del mensaje no puede estar vacío.' });
+    }
 
     try {
         const message = await prisma.message.create({
             data: {
                 content,
-                senderId,
+                senderId: String(senderId),
                 ideaId
             }
         });
 
-        // Sincronizamos el último mensaje en mensajeAdmin para que App.jsx lo muestre directo
+        // También actualiza la vista rápida del mensaje en la tabla Idea
         await prisma.idea.update({
             where: { id: ideaId },
             data: { mensajeAdmin: content }
@@ -56,6 +62,7 @@ export const sendMessage = async (req, res) => {
 
         res.json(message);
     } catch (error) {
+        console.error('Error Prisma en sendMessage:', error);
         res.status(500).json({ message: 'Error al enviar mensaje', error: error.message });
     }
 };
