@@ -14,15 +14,18 @@ export const getAllIdeasForAdmin = async (req, res) => {
     }
 };
 
-// 2. Cambiar estado (Aceptar o Rechazar)
+// 2. Cambiar estado (Aceptar o Rechazar) y guardar nota opcional
 export const updateIdeaStatus = async (req, res) => {
     const { id } = req.params;
-    const { estado } = req.body; // "aceptada" o "rechazada"
+    const { estado, mensajeAdmin } = req.body;
 
     try {
         const updatedIdea = await prisma.idea.update({
             where: { id },
-            data: { estado }
+            data: {
+                ...(estado && { estado }),
+                ...(mensajeAdmin !== undefined && { mensajeAdmin })
+            }
         });
         res.json(updatedIdea);
     } catch (error) {
@@ -30,7 +33,7 @@ export const updateIdeaStatus = async (req, res) => {
     }
 };
 
-// 3. Enviar mensaje en el chat de una idea
+// 3. Enviar mensaje en el chat de una idea (y actualizar la vista rápida del usuario)
 export const sendMessage = async (req, res) => {
     const { ideaId } = req.params;
     const { content } = req.body;
@@ -44,6 +47,13 @@ export const sendMessage = async (req, res) => {
                 ideaId
             }
         });
+
+        // Sincronizamos el último mensaje en mensajeAdmin para que App.jsx lo muestre directo
+        await prisma.idea.update({
+            where: { id: ideaId },
+            data: { mensajeAdmin: content }
+        });
+
         res.json(message);
     } catch (error) {
         res.status(500).json({ message: 'Error al enviar mensaje', error: error.message });
