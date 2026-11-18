@@ -21,8 +21,10 @@ const app = express();
 // Necesario si despliegas detrás de un proxy inverso como Render
 app.set('trust proxy', 1);
 
-// 2. Cabeceras de seguridad HTTP
-app.use(helmet());
+// 2. Cabeceras de seguridad HTTP (permitiendo recursos cross-origin entre Vercel y Render)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // 3. CORS estricto (Solo permite tu frontend en local y producción)
 const allowedOrigins = [
@@ -31,21 +33,19 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-const corsOptions = {
+app.use(cors({
   origin: (origin, callback) => {
-    // Permite herramientas sin origen o dominios autorizados (incluyendo previews de Vercel si deseas)
+    // Permite herramientas sin origen o dominios autorizados (incluyendo previews de Vercel)
     if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
-      callback(new Error('Bloqueado por política CORS'));
+      callback(null, false);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Responde explícitamente a las peticiones preflight
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+}));
 
 // 4. Límite de tamaño en el cuerpo JSON (evita ataques de sobrecarga)
 app.use(express.json({ limit: '10kb' }));
