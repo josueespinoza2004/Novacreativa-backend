@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// 1. Obtener todas las ideas para el panel de admin (sin exponer contraseñas de usuarios)
 export const getAllIdeasForAdmin = async (req, res) => {
     try {
         const ideas = await prisma.idea.findMany({
@@ -28,7 +27,6 @@ export const getAllIdeasForAdmin = async (req, res) => {
     }
 };
 
-// 2. Cambiar estado (Aceptar o Rechazar) y guardar nota opcional
 export const updateIdeaStatus = async (req, res) => {
     const { id } = req.params;
     const { estado, mensajeAdmin } = req.body;
@@ -57,7 +55,6 @@ export const updateIdeaStatus = async (req, res) => {
     }
 };
 
-// 3. Enviar mensaje en el chat de una idea (y actualizar la vista rápida del usuario)
 export const sendMessage = async (req, res) => {
     const { ideaId } = req.params;
     const { content } = req.body;
@@ -84,7 +81,8 @@ export const sendMessage = async (req, res) => {
             data: {
                 content: cleanContent,
                 senderId: String(senderId),
-                ideaId
+                ideaId,
+                isRead: false
             }
         });
 
@@ -100,10 +98,21 @@ export const sendMessage = async (req, res) => {
     }
 };
 
-// 4. Obtener mensajes de una idea
+// Obtener mensajes de una idea y marcar como leídos los del cliente
 export const getMessages = async (req, res) => {
     const { ideaId } = req.params;
+    const adminId = String(req.user?.id || 'admin-master-id');
+
     try {
+        await prisma.message.updateMany({
+            where: {
+                ideaId,
+                senderId: { not: adminId },
+                isRead: false
+            },
+            data: { isRead: true }
+        });
+
         const messages = await prisma.message.findMany({
             where: { ideaId },
             orderBy: { createdAt: 'asc' }

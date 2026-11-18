@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Crear una nueva idea (Vinculada al usuario autenticado)
 export const createIdea = async (req, res) => {
   try {
     const { titulo, servicio, presupuesto, tiempo, detalles } = req.body;
@@ -37,7 +36,6 @@ export const createIdea = async (req, res) => {
   }
 };
 
-// Obtener todas las ideas de la empresa autenticada (incluyendo historial de chat)
 export const getMyIdeas = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -63,7 +61,6 @@ export const getMyIdeas = async (req, res) => {
   }
 };
 
-// Enviar mensaje en el chat de una idea propia (Usuario -> Admin)
 export const sendUserMessage = async (req, res) => {
   try {
     const { ideaId } = req.params;
@@ -87,7 +84,8 @@ export const sendUserMessage = async (req, res) => {
       data: {
         content: content.trim(),
         senderId: String(userId),
-        ideaId
+        ideaId,
+        isRead: false
       }
     });
 
@@ -98,7 +96,33 @@ export const sendUserMessage = async (req, res) => {
   }
 };
 
-// Eliminar una idea por ID
+// Marcar mensajes del Admin como leídos por el usuario
+export const markIdeaMessagesAsRead = async (req, res) => {
+  try {
+    const { ideaId } = req.params;
+    const userId = String(req.user.id);
+
+    const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
+    if (!idea || idea.userId !== userId) {
+      return res.status(403).json({ message: 'Idea no encontrada o sin permisos.' });
+    }
+
+    await prisma.message.updateMany({
+      where: {
+        ideaId,
+        senderId: { not: userId },
+        isRead: false
+      },
+      data: { isRead: true }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error al marcar mensajes como leídos:', error.message);
+    res.status(500).json({ message: 'Error interno al actualizar lectura.' });
+  }
+};
+
 export const deleteIdea = async (req, res) => {
   try {
     const { id } = req.params;
