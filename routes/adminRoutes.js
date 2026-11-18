@@ -1,12 +1,20 @@
 import express from 'express';
-import { getAllIdeasForAdmin, updateIdeaStatus, sendMessage, getMessages } from '../controllers/adminController.js';
-import { verifyToken } from '../middleware/authMiddleware.js'; // Tu middleware de autenticación existente
+import {
+    getAllIdeasForAdmin,
+    updateIdeaStatus,
+    sendMessage,
+    getMessages
+} from '../controllers/adminController.js';
+import { verifyToken, verifyAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/ideas', verifyToken, getAllIdeasForAdmin);
-router.put('/ideas/:id/status', verifyToken, updateIdeaStatus);
-router.get('/ideas/:ideaId/messages', verifyToken, getMessages);
-router.post('/ideas/:ideaId/messages', verifyToken, sendMessage);
+// Protege TODAS las rutas de este archivo: primero valida el token y luego exige rol Admin
+router.use(verifyToken, verifyAdmin);
+
+router.get('/ideas', getAllIdeasForAdmin);
+router.put('/ideas/:id/status', updateIdeaStatus);
+router.get('/ideas/:ideaId/messages', getMessages);
+router.post('/ideas/:ideaId/messages', sendMessage);
 
 export default router;

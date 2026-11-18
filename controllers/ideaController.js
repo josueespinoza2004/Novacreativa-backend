@@ -6,15 +6,23 @@ const prisma = new PrismaClient();
 export const createIdea = async (req, res) => {
   try {
     const { titulo, servicio, presupuesto, tiempo, detalles } = req.body;
-    const userId = req.user.id; // Obtenido desde el middleware JWT
+    const userId = req.user.id;
+
+    if (!titulo?.trim() || !servicio?.trim() || !presupuesto?.trim()) {
+      return res.status(400).json({ message: 'Título, servicio y presupuesto son obligatorios.' });
+    }
+
+    if (titulo.length > 150 || (detalles && detalles.length > 2000)) {
+      return res.status(400).json({ message: 'El título o los detalles exceden el límite permitido.' });
+    }
 
     const newIdea = await prisma.idea.create({
       data: {
-        titulo,
-        servicio,
-        presupuesto,
-        tiempo,
-        detalles: detalles || "",
+        titulo: titulo.trim(),
+        servicio: servicio.trim(),
+        presupuesto: presupuesto.trim(),
+        tiempo: tiempo ? tiempo.trim() : 'Por definir',
+        detalles: detalles ? detalles.trim() : '',
         userId
       }
     });
@@ -24,7 +32,8 @@ export const createIdea = async (req, res) => {
       idea: newIdea
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error al registrar la idea.', error: error.message });
+    console.error('Error al crear idea:', error.message);
+    res.status(500).json({ message: 'Error interno al registrar la idea.' });
   }
 };
 
@@ -32,6 +41,10 @@ export const createIdea = async (req, res) => {
 export const getMyIdeas = async (req, res) => {
   try {
     const userId = req.user.id;
+
+    if (userId === 'admin-master-id') {
+      return res.json([]);
+    }
 
     const ideas = await prisma.idea.findMany({
       where: { userId },
@@ -45,7 +58,8 @@ export const getMyIdeas = async (req, res) => {
 
     res.json(ideas);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener las ideas.', error: error.message });
+    console.error('Error al obtener ideas:', error.message);
+    res.status(500).json({ message: 'Error interno al obtener las ideas.' });
   }
 };
 
@@ -60,7 +74,10 @@ export const sendUserMessage = async (req, res) => {
       return res.status(400).json({ message: 'El contenido del mensaje no puede estar vacío.' });
     }
 
-    // Verificar que la idea pertenezca a la empresa autenticada
+    if (content.length > 1000) {
+      return res.status(400).json({ message: 'El mensaje no puede superar los 1,000 caracteres.' });
+    }
+
     const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
     if (!idea || idea.userId !== userId) {
       return res.status(403).json({ message: 'Idea no encontrada o sin permisos para comentar.' });
@@ -76,7 +93,8 @@ export const sendUserMessage = async (req, res) => {
 
     res.status(201).json(message);
   } catch (error) {
-    res.status(500).json({ message: 'Error al enviar el mensaje.', error: error.message });
+    console.error('Error al enviar mensaje:', error.message);
+    res.status(500).json({ message: 'Error interno al enviar el mensaje.' });
   }
 };
 
@@ -86,7 +104,6 @@ export const deleteIdea = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Verificar que la idea le pertenezca a la empresa que intenta borrarla
     const idea = await prisma.idea.findUnique({ where: { id } });
     if (!idea || idea.userId !== userId) {
       return res.status(404).json({ message: 'Idea no encontrada o sin permisos.' });
@@ -96,6 +113,7 @@ export const deleteIdea = async (req, res) => {
 
     res.json({ message: 'Idea eliminada correctamente.' });
   } catch (error) {
-    res.status(500).json({ message: 'Error al eliminar la idea.', error: error.message });
+    console.error('Error al eliminar idea:', error.message);
+    res.status(500).json({ message: 'Error interno al eliminar la idea.' });
   }
 };

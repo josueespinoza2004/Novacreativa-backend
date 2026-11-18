@@ -1,16 +1,30 @@
 import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
-// 1. Obtener todas las ideas para el panel de admin
+// 1. Obtener todas las ideas para el panel de admin (sin exponer contraseñas de usuarios)
 export const getAllIdeasForAdmin = async (req, res) => {
     try {
         const ideas = await prisma.idea.findMany({
-            include: { user: true, messages: true },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        nombre: true,
+                        empresa: true,
+                        email: true
+                    }
+                },
+                messages: {
+                    orderBy: { createdAt: 'asc' }
+                }
+            },
             orderBy: { createdAt: 'desc' }
         });
         res.json(ideas);
     } catch (error) {
-        res.status(500).json({ message: 'Error al obtener ideas para admin', error: error.message });
+        console.error('Error al obtener ideas para admin:', error.message);
+        res.status(500).json({ message: 'Error interno al obtener las ideas.' });
     }
 };
 
@@ -19,17 +33,27 @@ export const updateIdeaStatus = async (req, res) => {
     const { id } = req.params;
     const { estado, mensajeAdmin } = req.body;
 
+    const estadosPermitidos = ['en_revision', 'aceptada', 'rechazada'];
+    if (estado && !estadosPermitidos.includes(estado)) {
+        return res.status(400).json({ message: 'Estado no válido.' });
+    }
+
+    if (mensajeAdmin && mensajeAdmin.length > 1000) {
+        return res.status(400).json({ message: 'El mensaje administrativo excede los 1,000 caracteres.' });
+    }
+
     try {
         const updatedIdea = await prisma.idea.update({
             where: { id },
             data: {
                 ...(estado && { estado }),
-                ...(mensajeAdmin !== undefined && { mensajeAdmin })
+                ...(mensajeAdmin !== undefined && { mensajeAdmin: String(mensajeAdmin).trim() })
             }
         });
         res.json(updatedIdea);
     } catch (error) {
-        res.status(500).json({ message: 'Error al actualizar estado', error: error.message });
+        console.error('Error al actualizar estado:', error.message);
+        res.status(500).json({ message: 'Error interno al actualizar el estado.' });
     }
 };
 
@@ -38,32 +62,41 @@ export const sendMessage = async (req, res) => {
     const { ideaId } = req.params;
     const { content } = req.body;
 
-    // Detecta el ID sin importar cómo lo firme el token JWT, o usa 'admin' como respaldo
-    const senderId = req.user?.userId || req.user?.id || req.user?.email || 'admin-novacreativa';
+    const senderId = req.user?.id || 'admin-master-id';
 
     if (!content || !content.trim()) {
         return res.status(400).json({ message: 'El contenido del mensaje no puede estar vacío.' });
     }
 
+    if (content.length > 1000) {
+        return res.status(400).json({ message: 'El mensaje no puede superar los 1,000 caracteres.' });
+    }
+
     try {
+        const existingIdea = await prisma.idea.findUnique({ where: { id: ideaId } });
+        if (!existingIdea) {
+            return res.status(404).json({ message: 'La idea especificada no existe.' });
+        }
+
+        const cleanContent = content.trim();
+
         const message = await prisma.message.create({
             data: {
-                content,
+                content: cleanContent,
                 senderId: String(senderId),
                 ideaId
             }
         });
 
-        // También actualiza la vista rápida del mensaje en la tabla Idea
         await prisma.idea.update({
             where: { id: ideaId },
-            data: { mensajeAdmin: content }
+            data: { mensajeAdmin: cleanContent }
         });
 
-        res.json(message);
+        res.status(201).json(message);
     } catch (error) {
-        console.error('Error Prisma en sendMessage:', error);
-        res.status(500).json({ message: 'Error al enviar mensaje', error: error.message });
+        console.error('Error Prisma en sendMessage:', error.message);
+        res.status(500).json({ message: 'Error interno al enviar el mensaje.' });
     }
 };
 
@@ -77,6 +110,7 @@ export const getMessages = async (req, res) => {
         });
         res.json(messages);
     } catch (error) {
-        res.status(500).json({ message: 'Error al cargar mensajes', error: error.message });
+        console.error('Error al cargar mensajes:', error.message);
+        res.status(500).json({ message: 'Error interno al cargar mensajes.' });
     }
 };
