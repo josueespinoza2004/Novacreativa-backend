@@ -27,21 +27,25 @@ app.use(helmet());
 // 3. CORS estricto (Solo permite tu frontend en local y producción)
 const allowedOrigins = [
   'http://localhost:5173',
-  process.env.FRONTEND_URL // Ej: https://novacreativa.vercel.app (agrégalo en Render)
+  'https://novacreativa.vercel.app',
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    // Permite herramientas sin origen (como Postman en desarrollo) o dominios autorizados
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Permite herramientas sin origen o dominios autorizados (incluyendo previews de Vercel si deseas)
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
       callback(new Error('Bloqueado por política CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Responde explícitamente a las peticiones preflight
 
 // 4. Límite de tamaño en el cuerpo JSON (evita ataques de sobrecarga)
 app.use(express.json({ limit: '10kb' }));
